@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant browser
+    participant server
+    
+    Note right of browser: User writes "helloooo" and clicks Save button
+    
+    Note right of browser: Event handler in spa.js prevents default form submission
+    Note right of browser: The browser adds the new note to the notes list and rerenders the list
+    
+    browser->>server: POST https://studies.cs.helsinki.fi/exampleapp/new_note_spa
+    Note right of browser: Content-Type: application/json<br>Payload: {"content": "helloooo", "date": "2023-04-08"}
+    activate server
+    Note left of server: Server adds the new note to the notes array
+    server-->>browser: Status Code 201 Created<br>{"message":"note created"}
+    deactivate server
+    
+    Note right of browser: No page reload or additional HTTP requests occur
