@@ -1,90 +1,101 @@
-const express = require("express");
-const morgan = require("morgan");
-require("dotenv").config();
+const express = require('express')
+const morgan = require('morgan')
+require('dotenv').config()
+const Contact = require('./models/contact')
 
-const Contact = require("./models/contact");
+const app = express()
 
-const app = express();
+app.use(express.static('dist'))
+app.use(express.json())
+app.use(morgan('tiny'))
 
-app.use(express.json());
-app.use(morgan("tiny"));
-app.use(express.static("dist"));
+app.get('/api/persons', (request, response, next) => {
+  Contact.find({})
+    .then(contacts => response.json(contacts))
+    .catch(error => next(error))
+})
 
-app.get("/api/persons", (request, response) => {
-  Contact.find({}).then((contacts) => {
-    response.json(contacts);
-  });
-});
-
-app.get("/info", (request, response) => {
-  const date = new Date();
-  Contact.countDocuments().then((personCount) => {
-    response.send(
-      `<p>Phonebook has info for ${personCount} people</p>` + `<p>${date}</p>`
-    );
-  });
-});
-
-app.get("/api/persons/:id", (request, response) => {
-  const { id } = request.params;
-
-  Contact.findById(id)
-    .then((person) => {
+app.get('/api/persons/:id', (request, response, next) => {
+  Contact.findById(request.params.id)
+    .then(person => {
       if (!person) {
-        return response.status(404).send("Person not found");
+        return response.status(404).send({ error: 'Person not found' })
       }
-      response.json(person);
+      response.json(person)
     })
-    .catch((error) => {
-      console.error("Error fetching person:", error);
-      response.status(500).send("Internal server error");
-    });
-});
+    .catch(error => next(error))
+})
 
-app.delete("/api/persons/:id", (request, response) => {
-  const { id } = request.params;
-
-  Contact.findByIdAndDelete(id)
-    .then(() => {
-      response.status(204).end();
+app.get('/info', (request, response, next) => {
+  Contact.countDocuments()
+    .then(count => {
+      response.send(
+        `<p>Phonebook has info for ${count} people</p><p>${new Date()}</p>`
+      )
     })
-    .catch((error) => {
-      console.error("Error deleting person:", error);
-      response.status(500).send("Internal server error");
-    });
-});
+    .catch(error => next(error))
+})
 
-app.post("/api/persons", (request, response) => {
-  const { name, number } = request.body;
+app.delete('/api/persons/:id', (request, response, next) => {
+  Contact.findByIdAndDelete(request.params.id)
+    .then(() => response.status(204).end())
+    .catch(error => next(error))
+})
 
-  if (!name || !number) {
-    return response.status(400).json({
-      error: "Name and number are required",
-    });
-  }
-  const newPerson = new Contact({
-    name,
-    number,
-  });
+app.post('/api/persons', (request, response, next) => {
+  const { name, number } = request.body
 
-  newPerson
-    .save()
-    .then((savedPerson) => {
-      response.status(201).json(savedPerson);
+  const newPerson = new Contact({ name, number })
+
+  newPerson.save()
+    .then(savedPerson => response.status(201).json(savedPerson))
+    .catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (request, response, next) => {
+  const { name, number } = request.body
+
+  Contact.findByIdAndUpdate(
+    request.params.id,
+    { name, number },
+    {
+      new: true,
+      runValidators: true,
+      context: 'query'
+    }
+  )
+    .then(updatedContact => {
+      if (!updatedContact) {
+        return response.status(404).send({ error: 'Person not found' })
+      }
+      response.json(updatedContact)
     })
-    .catch((error) => {
-      console.error("Error saving person:", error);
-      response.status(500).send("Internal server error");
-    });
-});
+    .catch(error => next(error))
+})
 
+// Middleware for unknown endpoints
 const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: "unknown endpoint" });
-};
+  response.status(404).send({ error: 'unknown endpoint' })
+}
+app.use(unknownEndpoint)
 
-app.use(unknownEndpoint);
+// Middleware for error handling
+const errorHandler = (error, request, response, next) => {
+  console.error('Error:', error.message)
 
-const PORT = process.env.PORT;
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  } else if (error.name === 'MongoServerError' && error.code === 11000) {
+    return response.status(400).json({ error: 'Name must be unique' })
+  }
+
+  next(error)
+}
+app.use(errorHandler)
+
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+  console.log(`Server running on port ${PORT}`)
+})

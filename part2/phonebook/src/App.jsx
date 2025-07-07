@@ -13,11 +13,7 @@ const App = () => {
   const [notification, setNotification] = useState(null)
 
   useEffect(() => {
-    personService
-      .getAll()
-      .then(initialPersons => {
-        setPersons(initialPersons)
-      })
+    personService.getAll().then(initialPersons => setPersons(initialPersons))
   }, [])
 
   const showNotification = (message, type = 'success') => {
@@ -29,46 +25,42 @@ const App = () => {
 
   const addPerson = (event) => {
     event.preventDefault()
-    
-    const existingPerson = persons.find(person => person.name === newName)
-    
+
+    const existingPerson = persons.find(p => p.name === newName)
+
     if (existingPerson) {
       if (existingPerson.number === newNumber) {
-        showNotification(`${newName} is already added to phonebook with the same number`, 'error')
+        showNotification(`${newName} is already in phonebook with the same number`, 'error')
         return
       }
-      
-      if (window.confirm(`${newName} is already added to phonebook, replace the old number with a new one?`)) {
+
+      if (window.confirm(`Replace ${newName}'s number with the new one?`)) {
         const updatedPerson = { ...existingPerson, number: newNumber }
-        
+
         personService
           .update(existingPerson.id, updatedPerson)
           .then(returnedPerson => {
-            setPersons(persons.map(person => 
-              person.id !== existingPerson.id ? person : returnedPerson
-            ))
+            setPersons(persons.map(p => p.id !== existingPerson.id ? p : returnedPerson))
             setNewName('')
             setNewNumber('')
             showNotification(`Updated ${newName}'s number`)
           })
           .catch(error => {
-            showNotification(
-              `Information of ${newName} has already been removed from server`, 
-              'error'
-            )
+            if (error.response && error.response.data && error.response.data.error) {
+              showNotification(error.response.data.error, 'error')
+            } else {
+              showNotification(`Failed to update ${newName}`, 'error')
+            }
             setPersons(persons.filter(p => p.id !== existingPerson.id))
           })
       }
       return
     }
-    
-    const personObject = { 
-      name: newName, 
-      number: newNumber
-    }
+
+    const newPerson = { name: newName, number: newNumber }
 
     personService
-      .create(personObject)
+      .create(newPerson)
       .then(returnedPerson => {
         setPersons(persons.concat(returnedPerson))
         setNewName('')
@@ -76,7 +68,11 @@ const App = () => {
         showNotification(`Added ${newName}`)
       })
       .catch(error => {
-        showNotification('Failed to add person', 'error')
+        if (error.response && error.response.data && error.response.data.error) {
+          showNotification(error.response.data.error, 'error')
+        } else {
+          showNotification('Failed to add person', 'error')
+        }
       })
   }
 
@@ -85,22 +81,22 @@ const App = () => {
       personService
         .remove(id)
         .then(() => {
-          setPersons(persons.filter(person => person.id !== id))
+          setPersons(persons.filter(p => p.id !== id))
           showNotification(`Deleted ${name}`)
         })
-        .catch(error => {
+        .catch(() => {
           showNotification(`Information of ${name} has already been removed from server`, 'error')
           setPersons(persons.filter(p => p.id !== id))
         })
     }
   }
 
-  const handleNameChange = (event) => setNewName(event.target.value)
-  const handleNumberChange = (event) => setNewNumber(event.target.value)
-  const handleSearchChange = (event) => setSearchName(event.target.value)
+  const handleNameChange = e => setNewName(e.target.value)
+  const handleNumberChange = e => setNewNumber(e.target.value)
+  const handleSearchChange = e => setSearchName(e.target.value)
 
-  const personsToShow = searchName.length > 0
-    ? persons.filter(person => person.name.toLowerCase().includes(searchName.toLowerCase()))
+  const personsToShow = searchName
+    ? persons.filter(p => p.name.toLowerCase().includes(searchName.toLowerCase()))
     : persons
 
   return (
@@ -108,7 +104,7 @@ const App = () => {
       <h2>Phonebook</h2>
       <Notification notification={notification} />
       <Filter value={searchName} onChange={handleSearchChange} />
-      
+
       <h2>Add a new</h2>
       <PersonForm 
         onSubmit={addPerson}
@@ -117,12 +113,9 @@ const App = () => {
         numberValue={newNumber}
         numberOnChange={handleNumberChange}
       />
-      
+
       <h2>Numbers</h2>
-      <PersonList 
-        persons={personsToShow} 
-        deletePerson={deletePerson}
-      />
+      <PersonList persons={personsToShow} deletePerson={deletePerson} />
     </div>
   )
 }
