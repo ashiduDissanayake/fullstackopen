@@ -5,7 +5,7 @@ const app = express();
 
 app.use(express.json());
 app.use(morgan('tiny'));
-app.use(express.static('dist'));
+app.use(express.static('dist'))
 
 const persons = [
     {
@@ -34,7 +34,7 @@ app.get("/", (request, response) => {
   response.send("<h1> Hello world! </h1>");
 });
 
-app.get("/persons", (request, response) => {
+app.get("/api/persons", (request, response) => {
   response.json(persons);
 });
 
@@ -47,7 +47,7 @@ app.get("/info", (request, response) => {
     )
 })
 
-app.get("/persons/:id", (request, response) => {
+app.get("/api/persons/:id", (request, response) => {
     const { id } = request.params;
 
     const person = persons.find((p) => p.id === id);
@@ -59,7 +59,7 @@ app.get("/persons/:id", (request, response) => {
     response.json(person);
 })
 
-app.delete("/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", (request, response) => {
     const { id } = request.params;
 
     const personIndex = persons.findIndex((p) => p.id === id);
@@ -72,7 +72,7 @@ app.delete("/persons/:id", (request, response) => {
     response.status(204).end();
 });
 
-app.post("/persons", (request, response) => {
+app.post("/api/persons", (request, response) => {
     const { name , number} = request.body;
 
     if (!name || !number) {
